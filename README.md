@@ -101,10 +101,13 @@ Finally, run TVKD training with:
 If you use this repository or the TVKD method in your research, please cite our NeurIPS 2025 paper:
 
 ```bibtex
-@inproceedings{tvkd2025,
-  title     = {Preference Distillation via Value-Based Reinforcement Learning},
-  author    = {...},
-  booktitle = {NeurIPS},
-  year      = {2025}
+@misc{kwon2025preferencedistillationvaluebased,
+      title={Preference Distillation via Value based Reinforcement Learning}, 
+      author={Minchan Kwon and Junwon Ko and Kangil Kim and Junmo Kim},
+      year={2025},
+      eprint={2509.16965},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2509.16965}, 
 }
 ```
