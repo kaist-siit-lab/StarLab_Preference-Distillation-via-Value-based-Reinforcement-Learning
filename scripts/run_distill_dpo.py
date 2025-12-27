@@ -102,10 +102,11 @@ def get_compressed_labels(labels: torch.Tensor, compressed_probs) -> torch.Tenso
                 idx_in_compressed = compressed["indices"].index(labels[b, t].item())
                 labels_compressed[b, t] = idx_in_compressed
             else:
-                # 안에 없다면 special index: V' - 1 ("remaining_probs")
+                # If not in compressed set, assign to special index V' - 1 ("remaining_probs")
                 labels_compressed[b, t] = len(compressed["indices"])
 
     return labels_compressed
+    
 def get_label_to_compressed_map(labels: torch.Tensor) -> List[List[int]]:
     """
     For each label in the batch, return the mapping from label positions to compressed_probs index.
@@ -130,6 +131,7 @@ def get_label_to_compressed_map(labels: torch.Tensor) -> List[List[int]]:
         mapping.append(row_map)
 
     return mapping
+    
 @dataclass
 class CustomDPOConfig(TrainingArguments):
     # hyper-parameters used in Alignment HandBook
@@ -2599,3 +2601,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
