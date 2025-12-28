@@ -1,4 +1,5 @@
 import sys
+# modify to users data directory
 sys.path.append("/home/minchan.kwon/ADPA")
 import inspect
 import logging
@@ -1007,7 +1008,6 @@ class DistillTrainer(Trainer):
             else:
                 ref_model_output = self.concatenated_forward(self.ref_model, batch)
                 
-        #print(ref_model_output['rejected_logps'].size())
         return ref_model_output["policy_chosen_probs"], ref_model_output["policy_rejected_probs"]
 
     @staticmethod
@@ -1079,7 +1079,7 @@ class DistillTrainer(Trainer):
             rejected_logps: torch.FloatTensor,
             ref_chosen_logps: torch.FloatTensor,
             ref_rejected_logps: torch.FloatTensor,
-            teacher_margin  = None,  # [B], 직접 주입된 교사 margin
+            teacher_margin  = None,  # [B], Directly injected teacher margin
             next_v_fn = None, 
     ) -> tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
@@ -1144,20 +1144,18 @@ class DistillTrainer(Trainer):
             # teacher_margin = logp_ref(chosen) - logp_ref(rejected)
             teacher_margin = (ref_chosen_logps - ref_rejected_logps).to(device)
             # model margin = logp_theta(chosen) - logp_theta(rejected)
-            model_margin  = (chosen_logps    - rejected_logps   ).to(device)
+            model_margin   = (chosen_logps     - rejected_logps    ).to(device)
             # loss = - log sigmoid( model_margin - teacher_margin )
             if next_v_fn is not None:
-                # next_v_fn은 (chosen_logps, rejected_logps, ref_chosen_logps, ref_rejected_logps) 입력으로
-                # [B] 크기의 “γ·V(sₜ₊₁)” 값을 반환해야 함
+                # next_v_fn takes (chosen_logps, rejected_logps, ref_chosen_logps, ref_rejected_logps) as input
+                # and must return the "γ·V(sₜ₊₁)" value of size [B]
                 v_shifted = next_v_fn(chosen_logps, rejected_logps,
                                     ref_chosen_logps, ref_rejected_logps)
             else:
                 v_shifted = 0.0
             logits = model_margin - teacher_margin - v_shifted
-            #print('logits', logits.size())
-            #losses = -F.logsigmoid(self.beta * logits)
         else:
-            # ─── 기존 DPO loss 로직 유지 ─────────────────────────────────────────────────
+            # ─── Maintain existing DPO loss logic ─────────────────────────────────────────────────
             chosen_logratios = chosen_logps.to(device) - (not self.reference_free) * ref_chosen_logps.to(device)
             rejected_logratios = rejected_logps.to(device) - (not self.reference_free) * ref_rejected_logps.to(device)
             if self.f_divergence_type == FDivergenceType.ALPHA_DIVERGENCE.value:
@@ -2595,5 +2593,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
