@@ -1496,14 +1496,10 @@ class DistillTrainer(Trainer):
                     ref_rejected_logps = batch["ref_rejected_logps"]
                 else:
                     ref_chosen_logps, ref_rejected_logps = self.compute_ref_log_probs(batch)
-            #print(ref_rejected_logps.size(), 'KL-penaly')
             # Because `rejected` sampled from REF student, we use forward KL here.
             kl_penalty_loss = ref_rejected_logps - model_output["rejected_logps"]
-            #print(kl_penalty_loss.size(), 'KL_penalty loss')
             losses = losses + self.args.kl_penalty_weight * kl_penalty_loss.mean()
             metrics[f"{prefix}loss/kl-penalty"] = kl_penalty_loss.detach().mean().cpu().item()
-
-
 
         if self.args.dpkd_distil_weight > 0:
             # [B, T, V']: soft target probs
@@ -1546,21 +1542,16 @@ class DistillTrainer(Trainer):
                 labels=model_output["rejected_labels"]
             )
             if "ref_chosen_logps" in batch.keys() and "ref_rejected_logps" in batch.keys():
-                #print('ref logps in batch')
                 ref_chosen_logps = batch["ref_chosen_logps"]
                 ref_rejected_logps = batch["ref_rejected_logps"]
             else:
-                #print('ref logps not in batch')
                 ref_chosen_logps, ref_rejected_logps = self.compute_ref_log_probs(batch)            
             
-            #print('size,reflog',ref_chosen_logps.size())
-            #print('size,policy_chosen',policy_chosen_probs.size())
             sum_dpo_loss,chosen_rewards,rejected_rewards = self.dpo_loss(
                 sum(policy_chosen_probs + teacher_chosen_probs) , sum(policy_rejected_probs + teacher_rejected_probs), ref_chosen_logps,ref_rejected_logps
             )
             losses = losses + self.args.sum_dpo_weight * sum_dpo_loss
             metrics[f"{prefix}loss/sumdpo"]=  sum_dpo_loss.detach().mean().cpu().item()
-
 
 
         # PART3: DISTILLATION LOSS
@@ -1578,6 +1569,7 @@ class DistillTrainer(Trainer):
                     labels=model_output["chosen_labels"])
                 distill_loss += self.args.chosen_distil_weight * chosen_fkl_loss
                 metrics[f"{prefix}loss/chosen-fkl"] = chosen_fkl_loss.detach().mean().cpu().item()
+                
             if self.args.rejected_distil_weight > 0.001:
                 policy_rejected_probs, teacher_rejected_probs = load_input_and_target_probs_fast(
                     compressed_probs=batch["teacher_rejected_probs"],
@@ -1589,8 +1581,6 @@ class DistillTrainer(Trainer):
                     labels=model_output["rejected_labels"])
                 distill_loss += self.args.rejected_distil_weight * rejected_fkl_loss
                 metrics[f"{prefix}loss/rejected-fkl"] = rejected_fkl_loss.detach().mean().cpu().item()
-                
-                
                 
                 
             if self.args.new_tpkd_weight>0:
@@ -2590,6 +2580,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
