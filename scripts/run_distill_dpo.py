@@ -1391,7 +1391,7 @@ class DistillTrainer(Trainer):
             reduction='none'
         ).sum(-1).mean()
         return fkl
-    # 이 부분이 policy gradient 계산 부분
+    # This part is policy gradient calculation
     @staticmethod
     def get_reverse_ce(input_probs, target_score, labels):
         mask = (labels != -100).to(input_probs.device)
@@ -1416,10 +1416,10 @@ class DistillTrainer(Trainer):
         model_output = self.concatenated_forward(model, batch)
         if torch.isnan(model_output["nll_loss"]):
             print(model_output.keys())
-            print("❗️ NaN 발생!")
+            print("❗️ NaN Occurred!")
             print("chosen_logits:", model_output["policy_chosen_probs"])
             print("chosen_labels:", model_output["chosen_labels"])
-            print("valid label 개수:", (model_output["chosen_labels"] != -100).sum().item())
+            print("num of valid label:", (model_output["chosen_labels"] != -100).sum().item())
             print("logits contains NaN:", torch.isnan(model_output["policy_chosen_probs"]).any().item())
             print("logits contains Inf:", torch.isinf(model_output["policy_chosen_probs"]).any().item())
         losses = losses + self.args.sft_on_chosen * model_output["nll_loss"].mean()
@@ -1454,8 +1454,6 @@ class DistillTrainer(Trainer):
             else:
                 ref_chosen_logps, ref_rejected_logps = self.compute_ref_log_probs(batch)
                 
-            #print('size in dpo', ref_chosen_logps.size())
-            #print('size in model_output',model_output["chosen_logps"])
             dpo_losses, chosen_rewards, rejected_rewards = self.dpo_loss(
                 model_output["chosen_logps"], model_output["rejected_logps"], ref_chosen_logps, ref_rejected_logps
             )
@@ -1471,8 +1469,7 @@ class DistillTrainer(Trainer):
 
         #PART2.5 : Reference regularizer
         if self.args.kl_student_weight>0:
-            #print(self.ref_model)
-# KL 정규화: ref logps가 batch에 없으면 직접 계산
+            # KL Normalization: if ref logps not in a batch, calculate directly
             if self.args.kl_student_target in ("chosen", "both"):
                 if "ref_chosen_logps" in batch:
                     ref_chosen_logps = batch["ref_chosen_logps"]
@@ -2593,6 +2590,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
