@@ -1597,6 +1597,7 @@ class DistillTrainer(Trainer):
                 chosen_lp = torch.log(pc.clamp(min=1e-8))
                 rejected_lp = torch.log(pr.clamp(min=1e-8))
                 ref_margin = None
+                
                 # 3) Define shifted-V calculating function (Possible to capture with closure)
                 def shifted_v_fn(ch_lp, rp_lp, rch_lp, rrp_lp):
                     # student+teacher concat
@@ -1614,7 +1615,7 @@ class DistillTrainer(Trainer):
                     # Return length B
                     return (1-gamma) * v_sum[: v_sum.size(0)//2]
                     
-                # ref_chosen_lp와 rejected는 0으로 초기화
+                # Initialize ref_chosen_lp and rejected as 0
                 ref_chosen_lp = torch.zeros_like(tc)
                 ref_rejected_lp = torch.zeros_like(tr)
                 if self.args.qadapter_loss_type == 'ref':
@@ -1632,20 +1633,17 @@ class DistillTrainer(Trainer):
                     kl_loss = ref_rejected_logps - model_output["rejected_logps"]
                     kl_win = ref_chosen_logps - model_output["chosen_logps"]
                     ref_margin = ref_chosen_logps - ref_rejected_logps - 0.3*(kl_loss - kl_win)
-                # 4) dpo_loss 호출
+                # 4) Call dpo_loss
                 loss_q, _, _ = self.dpo_loss(
                     chosen_lp, rejected_lp,
                     ref_chosen_lp, ref_rejected_lp,
-                    teacher_margin=ref_margin,      # 기본 교사 margin 사용
-                    next_v_fn=shifted_v_fn,   # 위에서 정의한 shifted-V 함수
+                    teacher_margin=ref_margin,      # Use basic teacher margin
+                    next_v_fn=shifted_v_fn,   # shifted-V function defined above
                 )
 
-                # 5) 최종 손실에 반영
+                # 5) Apply to final loss
                 losses = losses + self.args.new_tpkd_weight * loss_q.mean()
                 metrics[f"{prefix}loss/shifted_qadapter"] = loss_q.mean().detach().cpu().item()        
-                
-                
-                
                 
                 
             if self.args.qadapter_distil_weight > 0:
@@ -2581,6 +2579,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
