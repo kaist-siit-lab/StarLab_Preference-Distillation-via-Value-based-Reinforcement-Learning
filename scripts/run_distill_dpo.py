@@ -320,6 +320,7 @@ def mix_datasets(
             raw_datasets["train"] = concatenate_datasets(train_subsets).shuffle(seed=42)
         else:
             raw_datasets["train"] = concatenate_datasets(train_subsets)
+            
     # No subsampling for test datasets to enable fair comparison across models
     if len(raw_val_datasets) > 0:
         if shuffle:
@@ -989,14 +990,11 @@ class DistillTrainer(Trainer):
         compte_ref_context_manager = amp.autocast("cuda") if self._peft_has_been_casted_to_bf16 else nullcontext()
         with torch.no_grad(), compte_ref_context_manager:
             if self.ref_model is None:
-                #print('no compute ref_logp')
                 with self.null_ref_context():
                     ref_model_output = self.concatenated_forward(self.model, batch)
             else:
-                #print('compute ref_logp')
                 ref_model_output = self.concatenated_forward(self.ref_model, batch)
                 
-        #print(ref_model_output['rejected_logps'].size())
         return ref_model_output["chosen_logps"], ref_model_output["rejected_logps"]
     
     def compute_ref_probs(self, batch: dict[str, torch.LongTensor]) -> dict:
@@ -1004,11 +1002,9 @@ class DistillTrainer(Trainer):
         compte_ref_context_manager = amp.autocast("cuda") if self._peft_has_been_casted_to_bf16 else nullcontext()
         with torch.no_grad(), compte_ref_context_manager:
             if self.ref_model is None:
-                #print('no compute ref_logp')
                 with self.null_ref_context():
                     ref_model_output = self.concatenated_forward(self.model, batch)
             else:
-                #print('compute ref_logp')
                 ref_model_output = self.concatenated_forward(self.ref_model, batch)
                 
         #print(ref_model_output['rejected_logps'].size())
@@ -1076,9 +1072,7 @@ class DistillTrainer(Trainer):
         )
         return output
 
-
-
-
+    
     def dpo_loss(
             self,
             chosen_logps: torch.FloatTensor,
@@ -2601,4 +2595,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
