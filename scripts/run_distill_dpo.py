@@ -1467,7 +1467,7 @@ class DistillTrainer(Trainer):
             metrics[f"{prefix}rewards/accuracies"] = reward_accuracies.mean().cpu()
             metrics[f"{prefix}rewards/margins"] = (chosen_rewards - rejected_rewards).mean().cpu()
 
-        #PART2.5 : Reference regularizer
+        # PART2.5 : Reference regularizer
         if self.args.kl_student_weight>0:
             # KL Normalization: if ref logps not in a batch, calculate directly
             if self.args.kl_student_target in ("chosen", "both"):
@@ -1597,10 +1597,10 @@ class DistillTrainer(Trainer):
                 chosen_lp = torch.log(pc.clamp(min=1e-8))
                 rejected_lp = torch.log(pr.clamp(min=1e-8))
                 ref_margin = None
-                # 3) shifted-V 계산 함수 정의 (클로저로 캡처 가능)
+                # 3) Define shifted-V calculating function (Possible to capture with closure)
                 def shifted_v_fn(ch_lp, rp_lp, rch_lp, rrp_lp):
                     # student+teacher concat
-                    student_lp = torch.cat([ch_lp, rp_lp], dim=0)  # [2B, T, V] 또는 [2B, T]
+                    student_lp = torch.cat([ch_lp, rp_lp], dim=0)  # [2B, T, V] or [2B, T]
                     teacher_lp = torch.cat([rch_lp, rrp_lp], dim=0)
                     beta = self.args.tpkd_beta
                     temperature_beta = self.args.tpkd_temperature_beta
@@ -1611,8 +1611,9 @@ class DistillTrainer(Trainer):
                     shifted = torch.zeros_like(values)
                     shifted[:, :-1] = values[:, 1:]
                     v_sum = shifted.sum(dim=1)
-                    # 반환 길이는 B
+                    # Return length B
                     return (1-gamma) * v_sum[: v_sum.size(0)//2]
+                    
                 # ref_chosen_lp와 rejected는 0으로 초기화
                 ref_chosen_lp = torch.zeros_like(tc)
                 ref_rejected_lp = torch.zeros_like(tr)
@@ -2580,6 +2581,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
