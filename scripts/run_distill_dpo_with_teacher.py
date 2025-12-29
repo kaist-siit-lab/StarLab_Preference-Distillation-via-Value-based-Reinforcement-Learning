@@ -1388,12 +1388,8 @@ class DistillTrainer(Trainer):
                 metrics[f"{prefix}loss/qadapter_from_teacher"] = q_loss.detach().cpu().item()
             losses = losses + self.args.distillation_weight * distill_loss.mean()
 
-        # PART4: Advantage-Guided Distillation Preference Alignment  model_output["rejected_labels"][model_output["rejected_labels"] != -100], [i['indices'] for i in batch["rejected_margin_logp_every"][0]]
-        #여기가 ADPA 들어가는 부분. 이쪽을 수정하면 좋을 것 같은데.
-        # PART4: Advantage-Guided Distillation Preference Alignment
         # PART4: Advantage-Guided Distillation Preference Alignment
         if self.args.adpa_weight > 0:
-            #print(batch.keys())
             policy_rejected_probs, rejected_margin_logp = load_input_and_target_probs_fast(
                 compressed_probs=batch["rejected_margin_logp_every"],
                 input_probs=model_output["policy_rejected_probs"],
@@ -1407,7 +1403,6 @@ class DistillTrainer(Trainer):
                 )
 
 
-            #여기
             elif self.args.adpa_loss_type == "q-sft":
                 labels = model_output["rejected_labels"].clone()            # [B, T]
                 student_probs = model_output["policy_rejected_probs"].clone()  # [B, T, V]
@@ -1439,10 +1434,10 @@ class DistillTrainer(Trainer):
                                 logit_val = compressed["values"][idx]
                                 target_logits[b, t, label] = logit_val
                             else:
-                                # label이 포함 안 되어 있으면 그대로 base_logit 유지
+                                # keep base_logit if label is not contained
                                 pass
 
-                    # softmax → 확률 분포
+                    # softmax → pdf
                     target_probs = torch.softmax(target_logits, dim=-1).clone().detach()
 
                 # KL(student || target)
@@ -1466,14 +1461,14 @@ class DistillTrainer(Trainer):
                 )
             elif self.args.adpa_loss_type == "rough_pg":
                 batch_size, seq_len, top_k = policy_rejected_probs.size()
-                # 1) mask를 이용해 -100 토큰 필터링
+                # 1) use mask to filter -100 token
                 mask = (model_output["rejected_labels"] != -100)
-                # 2) margin(=rejected_margin_logp)은 [B, T], 그 중 valid 토큰만 합산 -> shape: [B]
+                # 2) margin(=rejected_margin_logp) is [B, T], sum only valid -> shape: [B]
                 advantage_summed = rejected_margin_logp[mask].view(batch_size, -1).sum(dim=1)
-                # 3) 시퀀스 전체 로그우도는 model_output["rejected_logps"] : [B]
+                # 3) likelihood of whole sequence is model_output["rejected_logps"] : [B]
                 seq_logprob = model_output["rejected_logps"]  # (already sum of valid tokens)
-                # 4) 로스 = - E[ advantage_summed * seq_logprob ]
-                #    advantage_summed와 seq_logprob를 곱한 뒤 음수 부호를 취해 mean
+                # 4) Loss = - E[ advantage_summed * seq_logprob ]
+                #    multiply advantage_summed and seq_logprob and change the sign -> mean
                 adpa_loss = - (advantage_summed * seq_logprob).mean()
 
 
@@ -1482,11 +1477,11 @@ class DistillTrainer(Trainer):
                 batch_size, seq_len, top_k = policy_rejected_probs.size()
                 vocab_size = model_output["policy_rejected_probs"].shape[-1]
 
-                # [1] teacher margin -> teacher top-k (indices, values) => target_probs 초기화
+                # [1] teacher margin -> teacher top-k (indices, values) => initialize target_probs
                 student_probs = model_output["policy_rejected_probs"].clone()
                 labels = model_output["rejected_labels"]
 
-                # 토치 텐서 준비
+                # prepare torch tensor
                 topk_indices = torch.zeros(batch_size, seq_len, top_k, dtype=torch.long, device=student_probs.device)
                 topk_values = torch.zeros(batch_size, seq_len, top_k, dtype=torch.float, device=student_probs.device)
 
