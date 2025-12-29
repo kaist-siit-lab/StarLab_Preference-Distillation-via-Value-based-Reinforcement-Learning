@@ -2136,13 +2136,13 @@ class DistillTrainer(Trainer):
                         teacher_logits[b, t, topk_indices[b, t, :k]] = topk_values[b, t, :k]
 
                 # [3] student_probs -> student_logits
-                #    log() 시에 0이 들어있으면 -inf가 나올 수 있으니 작은 값을 깔아둔다.
+                #    if 0 inside log() results -inf -> put epsilon
                 EPS = 1e-7
                 student_probs_clamped = student_probs.clamp(min=EPS)  # avoid log(0)
                 student_logits = student_probs_clamped.log().detach()
 
-                # [4] 혼합(logits) = teacher_logits + lam * student_logits
-                #    lam, temperature 등은 hyperparam (필요시 self.args에 추가)
+                # [4] Combined(logits) = teacher_logits + lam * student_logits
+                #    lam, temperature are hyperparam
                 lam = 1.0
                 temperature = self.args.adpa_temperature
                 combined_logits = teacher_logits + lam * student_logits
@@ -2563,6 +2563,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
