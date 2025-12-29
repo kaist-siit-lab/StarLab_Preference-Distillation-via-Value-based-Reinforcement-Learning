@@ -1710,7 +1710,7 @@ class DistillTrainer(Trainer):
                 soft_value_t1_max = torch.zeros_like(values_max)
                 soft_value_t1_max[:, :-1] = values_max[:, 1:]
                 soft_value_t1_max = soft_value_t1_max * valid_mask
-                # === 추가 Soft value next state v_{t+1} based on new methods ===
+                # === Soft value next state v_{t+1} based on new methods ===
                 if self.args.qadapter_softvalue_type == "sum":
                     soft_value_t1 = torch.zeros_like(values)
                     soft_value_t1[:, :-1] = values[:, 1:]
@@ -1833,13 +1833,13 @@ class DistillTrainer(Trainer):
                     log_pi_star = torch.log(torch.clamp(teacher_probs, min=1e-8))  # Q_phi(s,a)
                     v_teacher = alpha * temperature_beta * torch.logsumexp(log_pi_star / temperature_beta, dim=-1)  # [2B, T]
                     v_teacher_shifted = torch.zeros_like(v_teacher)
-                    v_teacher_shifted[:, :-1] = v_teacher[:, 1:]  # 오른쪽으로 한 칸 shift
+                    v_teacher_shifted[:, :-1] = v_teacher[:, 1:]  # shift 1 to the right
                     v_teacher_shifted = v_teacher_shifted * valid_mask
 
                     # sum over sequence length
                     v_teacher_sum = v_teacher_shifted.sum(dim=1)
 
-                    # 4. Final reward (teacher logp 분모로 사용)
+                    # 4. Final reward (use teacher logp as denominator)
                     reward_sum = beta * (student_logp_sum - teacher_logp_sum) - (1 - gamma) * v_teacher_sum
 
                     # 5. Cross entropy loss
@@ -1923,7 +1923,7 @@ class DistillTrainer(Trainer):
                     log_pi_star = torch.log(torch.clamp(teacher_probs, min=1e-8))  # Q_phi(s,a)
                     v_teacher = alpha * temperature_beta * torch.logsumexp(log_pi_star / temperature_beta, dim=-1)  # [2B, T]
                     v_teacher_shifted = torch.zeros_like(v_teacher)
-                    v_teacher_shifted[:, :-1] = v_teacher[:, 1:]  # 오른쪽으로 한 칸 shift
+                    v_teacher_shifted[:, :-1] = v_teacher[:, 1:]  # shift 1 to the right
                     v_teacher_shifted = v_teacher_shifted * valid_mask
 
                     # sum over sequence length
@@ -1995,17 +1995,13 @@ class DistillTrainer(Trainer):
                 metrics[f"{prefix}value/q_value_ai_mean"] = q_value_ai.sum().detach().cpu().item() / valid_mask.sum().item()
                 metrics[f"{prefix}value/soft_value_t1_mean"] = soft_value_t1.sum().detach().cpu().item() / valid_mask.sum().item()
                 metrics[f"{prefix}value/soft_value_t1_max"] = soft_value_t1_max.sum().detach().cpu().item() / valid_mask.sum().item()
-            # 이후 losses 합산 부분
+            # accumulate total losses 
             losses = losses + self.args.distillation_weight * distill_loss.mean()
             if self.args.qadapter_distil_weight > 0:
                 losses += self.args.qadapter_distil_weight * qadapter_loss.mean()
 
-        # PART4: Advantage-Guided Distillation Preference Alignment  model_output["rejected_labels"][model_output["rejected_labels"] != -100], [i['indices'] for i in batch["rejected_margin_logp_every"][0]]
-        #여기가 ADPA 들어가는 부분. 이쪽을 수정하면 좋을 것 같은데.
-        # PART4: Advantage-Guided Distillation Preference Alignment
         # PART4: Advantage-Guided Distillation Preference Alignment
         if self.args.adpa_weight > 0.001:
-            #print(batch.keys())
             policy_rejected_probs, rejected_margin_logp = load_input_and_target_probs_fast(
                 compressed_probs=batch["rejected_margin_logp_every"],
                 input_probs=model_output["policy_rejected_probs"],
@@ -2024,7 +2020,6 @@ class DistillTrainer(Trainer):
                     ref_rejected_logps = batch["ref_rejected_logps"]
                 else:
                     _, ref_rejected_logps = self.compute_ref_probs(batch)
-                #print(ref_rejected_logps.size())
                 ref_rejected_probs, _ = load_input_and_target_probs_fast(
                     compressed_probs=batch["rejected_margin_logp_every"],
                     input_probs=ref_rejected_logps,
@@ -2579,6 +2574,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
