@@ -1,4 +1,5 @@
 import sys
+# modify to users data directory
 sys.path.append("/home/minchan.kwon/ADPA")
 import inspect
 import logging
@@ -102,7 +103,7 @@ def get_compressed_labels(labels: torch.Tensor, compressed_probs) -> torch.Tenso
                 idx_in_compressed = compressed["indices"].index(labels[b, t].item())
                 labels_compressed[b, t] = idx_in_compressed
             else:
-                # 안에 없다면 special index: V' - 1 ("remaining_probs")
+                # If not in compressed set, assign to special index V' - 1 ("remaining_probs")
                 labels_compressed[b, t] = len(compressed["indices"])
 
     return labels_compressed
@@ -159,7 +160,7 @@ class CustomDPOConfig(TrainingArguments):
         default="dpo",
     )
     adpa_loss_type: Optional[str] = field(
-        default="reverse_ce",  # 또는 "soft_kl"
+        default="reverse_ce",  # or "soft_kl"
         metadata={"help": "Type of ADPA loss: reverse_ce or soft_kl"},
     )
     adpa_temperature: Optional[float] = field(
@@ -1467,14 +1468,14 @@ class DistillTrainer(Trainer):
                 # DPO-style preference loss
                 bs = reward_sum.shape[0] // 2
                 if self.args.qadapter_loss_type == "dpo":
-                    # 기존 DPO-style loss
+                    # exisiting DPO-style loss
                     logits = torch.stack([reward_sum[:bs], reward_sum[bs:]], dim=-1)
                     targets = torch.zeros(bs, dtype=torch.long, device=logits.device)
                     pref_loss = F.cross_entropy(logits, targets)
                     qadapter_loss = pref_loss
 
                 elif self.args.qadapter_loss_type == "pg":
-                    # 새로 추가한 policy gradient 방식
+                    # newly implemented policy gradient
                     log_policy_probs = torch.log(torch.clamp(policy_probs, min=1e-8))
                     log_pi_a = torch.gather(log_policy_probs, dim=-1, index=labels_exp).squeeze(-1)
                     log_pi_a = log_pi_a * valid_mask
@@ -1487,12 +1488,8 @@ class DistillTrainer(Trainer):
                 
             losses = losses + self.args.distillation_weight * distill_loss.mean() + self.args.qadapter_distil_weight * qadapter_loss.mean()
 
-        # PART4: Advantage-Guided Distillation Preference Alignment  model_output["rejected_labels"][model_output["rejected_labels"] != -100], [i['indices'] for i in batch["rejected_margin_logp_every"][0]]
-        #여기가 ADPA 들어가는 부분. 이쪽을 수정하면 좋을 것 같은데.
-        # PART4: Advantage-Guided Distillation Preference Alignment
         # PART4: Advantage-Guided Distillation Preference Alignment
         if self.args.adpa_weight > 0:
-            #print(batch.keys())
             policy_rejected_probs, rejected_margin_logp = load_input_and_target_probs_fast(
                 compressed_probs=batch["rejected_margin_logp_every"],
                 input_probs=model_output["policy_rejected_probs"],
@@ -1523,11 +1520,11 @@ class DistillTrainer(Trainer):
                     device = student_probs.device
                     batch_size, seq_len, vocab_size = student_probs.shape
 
-                    # logit 초기값 (정답 제외 나머지 토큰들)
+                    # initial value of logit (residual tokens except answer)
                     base_logit = -1.0
                     target_logits = torch.full((batch_size, seq_len, vocab_size), fill_value=base_logit, device=device)
 
-                    # 위치 매핑: label[b][t] → compressed_probs[b][j]에서의 j 구함
+                    # positional mapping : get j for label[b][t] → compressed_probs[b][j]
                     label2comp_map = get_label_to_compressed_map(labels)
 
                     for b in range(batch_size):
@@ -1546,10 +1543,10 @@ class DistillTrainer(Trainer):
                                 logit_val = compressed["values"][idx]
                                 target_logits[b, t, label] = logit_val
                             else:
-                                # label이 포함 안 되어 있으면 그대로 base_logit 유지
+                                # keep base_logit if label is not contained
                                 pass
 
-                    # softmax → 확률 분포
+                    # softmax → pdf
                     target_probs = torch.softmax(target_logits, dim=-1).clone().detach()
 
                 # KL(student || target)
