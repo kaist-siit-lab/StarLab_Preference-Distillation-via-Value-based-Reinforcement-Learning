@@ -734,10 +734,6 @@ class DistillTrainer(Trainer):
                 )
 
         if self.ref_model is None:
-            # if not (self.is_peft_model or self.precompute_ref_log_probs):
-            #     raise ValueError(
-            #         "No reference model and model is not a Peft model. Try setting `precompute_ref_log_probs=True`"
-            #     )
             if args.sync_ref_model:
                 raise ValueError(
                     "You currently cannot use `ref_model=None` with TR-DPO method. Please provide `ref_model`."
@@ -1324,10 +1320,10 @@ class DistillTrainer(Trainer):
         model_output = self.concatenated_forward(model, batch)
         if torch.isnan(model_output["nll_loss"]):
             print(model_output.keys())
-            print("❗️ NaN 발생!")
+            print("❗️ NaN Occurred!")
             print("chosen_logits:", model_output["policy_chosen_probs"])
             print("chosen_labels:", model_output["chosen_labels"])
-            print("valid label 개수:", (model_output["chosen_labels"] != -100).sum().item())
+            print("num of valid label:", (model_output["chosen_labels"] != -100).sum().item())
             print("logits contains NaN:", torch.isnan(model_output["policy_chosen_probs"]).any().item())
             print("logits contains Inf:", torch.isinf(model_output["policy_chosen_probs"]).any().item())
         losses = losses + self.args.sft_on_chosen * model_output["nll_loss"].mean()
@@ -1463,12 +1459,9 @@ class DistillTrainer(Trainer):
                 # Step 3: Gather q-values
                 q_value_ai = torch.gather(q_values, dim=-1, index=labels_exp).squeeze(-1)  # [2B, T]
                 q_value_ai = q_value_ai * valid_mask  # mask out invalid positions
-                #print("q_values.shape:", q_values.shape)
-                #print("labels_exp.max():", labels_exp.max().item())
-                #print("labels_exp.min():", labels_exp.min().item())
                 # reward = Q - gamma * V
                 reward = (q_value_ai - gamma * values) * mask  # [2B, T]
-                reward = reward * valid_mask  # 마스킹 적용
+                reward = reward * valid_mask  # apply masking
                 reward_sum = reward.sum(dim=1)  # [2B]
 
                 # DPO-style preference loss
