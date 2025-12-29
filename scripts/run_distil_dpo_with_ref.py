@@ -1296,7 +1296,7 @@ class DistillTrainer(Trainer):
             reduction='none'
         ).sum(-1).mean()
         return fkl
-    # 이 부분이 policy gradient 계산 부분
+    # This part is policy gradient calculation
     @staticmethod
     def get_reverse_ce(input_probs, target_score, labels):
         mask = (labels != -100).to(input_probs.device)
@@ -1505,13 +1505,10 @@ class DistillTrainer(Trainer):
             elif self.args.adpa_loss_type == "q_adapter":
                 new_policy = policy_rejected_probs.detach().clone()
                 new_margin = rejected_margin_logp  - new_policy
-                # new_margin을 2로 나눠서 mean으로 만들어줌
-                #new_margin = new_margin / 2.0
                 adpa_loss = self.get_reverse_ce(
                     policy_rejected_probs, new_margin, model_output["rejected_labels"]
                 )
 
-            #여기
             elif self.args.adpa_loss_type == "q-sft":
                 labels = model_output["rejected_labels"].clone()            # [B, T]
                 student_probs = model_output["policy_rejected_probs"].clone()  # [B, T, V]
@@ -1555,12 +1552,7 @@ class DistillTrainer(Trainer):
                     target_probs=target_probs,
                     labels=labels
                 )
-                                        
-                    
-                    
-                
-
-
+                     
             elif self.args.adpa_loss_type == "kl_from_logits":
                 #teacher_probs = F.softmax(rejected_margin_logp / self.args.adpa_temperature, dim=-1)
                 teacher_probs = torch.exp(rejected_margin_logp)
@@ -1570,14 +1562,14 @@ class DistillTrainer(Trainer):
                 )
             elif self.args.adpa_loss_type == "rough_pg":
                 batch_size, seq_len, top_k = policy_rejected_probs.size()
-                # 1) mask를 이용해 -100 토큰 필터링
+                # 1) use mask to filter -100 token
                 mask = (model_output["rejected_labels"] != -100)
-                # 2) margin(=rejected_margin_logp)은 [B, T], 그 중 valid 토큰만 합산 -> shape: [B]
+                # 2) margin(=rejected_margin_logp) is [B, T], sum only valid -> shape: [B]
                 advantage_summed = rejected_margin_logp[mask].view(batch_size, -1).sum(dim=1)
-                # 3) 시퀀스 전체 로그우도는 model_output["rejected_logps"] : [B]
+                # 3) likelihood of whole sequence is model_output["rejected_logps"] : [B]
                 seq_logprob = model_output["rejected_logps"]  # (already sum of valid tokens)
-                # 4) 로스 = - E[ advantage_summed * seq_logprob ]
-                #    advantage_summed와 seq_logprob를 곱한 뒤 음수 부호를 취해 mean
+                # 4) Loss = - E[ advantage_summed * seq_logprob ]
+                #    multiply advantage_summed and seq_logprob and change the sign -> mean
                 adpa_loss = - (advantage_summed * seq_logprob).mean()
 
 
@@ -1590,7 +1582,7 @@ class DistillTrainer(Trainer):
                 student_probs = model_output["policy_rejected_probs"].clone()
                 labels = model_output["rejected_labels"]
 
-                # 토치 텐서 준비
+                # prepare torch tensor
                 topk_indices = torch.zeros(batch_size, seq_len, top_k, dtype=torch.long, device=student_probs.device)
                 topk_values = torch.zeros(batch_size, seq_len, top_k, dtype=torch.float, device=student_probs.device)
 
