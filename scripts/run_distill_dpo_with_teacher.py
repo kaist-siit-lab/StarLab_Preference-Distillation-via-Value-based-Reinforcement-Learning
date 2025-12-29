@@ -1,4 +1,5 @@
 import sys
+# modify to users data directory
 sys.path.append("/home/minchan.kwon/ADPA")
 import inspect
 import logging
@@ -1269,7 +1270,7 @@ class DistillTrainer(Trainer):
             reduction='none'
         ).sum(-1).mean()
         return fkl
-    # 이 부분이 policy gradient 계산 부분
+    # This part is policy gradient calculation
     @staticmethod
     def get_reverse_ce(input_probs, target_score, labels):
         mask = (labels != -100).to(input_probs.device)
@@ -1294,10 +1295,10 @@ class DistillTrainer(Trainer):
         model_output = self.concatenated_forward(model, batch)
         if torch.isnan(model_output["nll_loss"]):
             print(model_output.keys())
-            print("❗️ NaN 발생!")
+            print("❗️ NaN Occurred!")
             print("chosen_logits:", model_output["policy_chosen_probs"])
             print("chosen_labels:", model_output["chosen_labels"])
-            print("valid label 개수:", (model_output["chosen_labels"] != -100).sum().item())
+            print("num of valid label :", (model_output["chosen_labels"] != -100).sum().item())
             print("logits contains NaN:", torch.isnan(model_output["policy_chosen_probs"]).any().item())
             print("logits contains Inf:", torch.isinf(model_output["policy_chosen_probs"]).any().item())
         losses = losses + self.args.sft_on_chosen * model_output["nll_loss"].mean()
@@ -1415,11 +1416,11 @@ class DistillTrainer(Trainer):
                     device = student_probs.device
                     batch_size, seq_len, vocab_size = student_probs.shape
 
-                    # logit 초기값 (정답 제외 나머지 토큰들)
+                    # initial value of logit (residual tokens except answer)
                     base_logit = -1.0
                     target_logits = torch.full((batch_size, seq_len, vocab_size), fill_value=base_logit, device=device)
 
-                    # 위치 매핑: label[b][t] → compressed_probs[b][j]에서의 j 구함
+                    # positional mapping : get j for label[b][t] → compressed_probs[b][j]
                     label2comp_map = get_label_to_compressed_map(labels)
 
                     for b in range(batch_size):
