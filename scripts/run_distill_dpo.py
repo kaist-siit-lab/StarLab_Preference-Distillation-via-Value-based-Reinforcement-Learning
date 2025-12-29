@@ -2091,12 +2091,12 @@ class DistillTrainer(Trainer):
                 batch_size, seq_len, top_k = policy_rejected_probs.size()
                 # 1) use mask to filter -100 token
                 mask = (model_output["rejected_labels"] != -100)
-                # 2) margin(=rejected_margin_logp)은 [B, T], 그 중 valid 토큰만 합산 -> shape: [B]
+                # 2) margin(=rejected_margin_logp) is [B, T], sum only valid -> shape: [B]
                 advantage_summed = rejected_margin_logp[mask].view(batch_size, -1).sum(dim=1)
-                # 3) 시퀀스 전체 로그우도는 model_output["rejected_logps"] : [B]
+                # 3) likelihood of whole sequence is model_output["rejected_logps"] : [B]
                 seq_logprob = model_output["rejected_logps"]  # (already sum of valid tokens)
-                # 4) 로스 = - E[ advantage_summed * seq_logprob ]
-                #    advantage_summed와 seq_logprob를 곱한 뒤 음수 부호를 취해 mean
+                # 4) Loss = - E[ advantage_summed * seq_logprob ]
+                #    multiply advantage_summed and seq_logprob and change the sign -> mean
                 adpa_loss = - (advantage_summed * seq_logprob).mean()
 
 
@@ -2105,11 +2105,11 @@ class DistillTrainer(Trainer):
                 batch_size, seq_len, top_k = policy_rejected_probs.size()
                 vocab_size = model_output["policy_rejected_probs"].shape[-1]
 
-                # [1] teacher margin -> teacher top-k (indices, values) => target_probs 초기화
+                # [1] teacher margin -> teacher top-k (indices, values) => initialize target_probs
                 student_probs = model_output["policy_rejected_probs"].clone()
                 labels = model_output["rejected_labels"]
 
-                # 토치 텐서 준비
+                # prepare torch tensor
                 topk_indices = torch.zeros(batch_size, seq_len, top_k, dtype=torch.long, device=student_probs.device)
                 topk_values = torch.zeros(batch_size, seq_len, top_k, dtype=torch.float, device=student_probs.device)
 
@@ -2123,9 +2123,9 @@ class DistillTrainer(Trainer):
                         topk_indices[b, t, :k] = torch.tensor(compressed["indices"][:k], dtype=torch.long, device=student_probs.device)
                         topk_values[b, t, :k] = torch.tensor(compressed["values"][:k], dtype=torch.float, device=student_probs.device)
 
-                # [2] teacher 분포를 vocab_size에 맞춰 sparse->dense로 확장
+                # [2] expand teacher distribution according to vocab_size sparse->dense
                 teacher_logits = torch.full((batch_size, seq_len, vocab_size), -1e9, device=student_probs.device)
-                # -1e9로 초기화 -> teacher margin이 0인 위치는 매우 작은 로그값
+                # initialize -1e9 -> position where teacher margin is possess small log value
                 for b in range(batch_size):
                     margin_logp_seq = batch["rejected_margin_logp_every"][b]
                     seq_len_local = len(margin_logp_seq)
@@ -2563,6 +2563,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
