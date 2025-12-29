@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# 반복 횟수 설정
+# set number of cycle
 num_cycles=5
 
-# 초기 student model 경로
+# initial student model path
 student_model_path="./model/student_sft_init"
 
-# reward model 고정
+# fix reward model
 reward_model="sfairXC/FsfairX-LLaMA3-RM-v0.1"
 
-# output 파일 및 모델 저장 폴더
+# output file and ckpt saving folder
 mkdir -p train_offline
 mkdir -p models
 
@@ -48,6 +48,6 @@ do
     --per_device_train_batch_size 1 \
     --learning_rate 1e-5
 
-  # 다음 cycle에서 사용할 student 모델 경로 업데이트
+  # update the student model path to use on next cycle
   student_model_path="${output_model_dir}"
 done
