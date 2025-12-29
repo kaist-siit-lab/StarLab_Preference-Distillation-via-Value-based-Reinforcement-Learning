@@ -1930,7 +1930,6 @@ class DistillTrainer(Trainer):
                     v_teacher_sum = v_teacher_shifted.sum(dim=1)
 
                     # 4. Final reward
-                    
                     reward_sum = beta * (student_logp_sum - ref_logp_sum) - (1 - gamma) * v_teacher_sum  # [2B]
                     
 
@@ -2033,13 +2032,10 @@ class DistillTrainer(Trainer):
             elif self.args.adpa_loss_type == "simple_adv":
                 new_policy = policy_rejected_probs.detach().clone()
                 new_margin = rejected_margin_logp  - new_policy
-                # new_margin을 2로 나눠서 mean으로 만들어줌
-                #new_margin = new_margin / 2.0
                 adpa_loss = self.get_reverse_ce(
                     policy_rejected_probs, new_margin, model_output["rejected_labels"]
                 )
 
-            #여기
             elif self.args.adpa_loss_type == "q-sft":
                 labels = model_output["rejected_labels"].clone()            # [B, T]
                 student_probs = model_output["policy_rejected_probs"].clone()  # [B, T, V]
@@ -2048,11 +2044,11 @@ class DistillTrainer(Trainer):
                     device = student_probs.device
                     batch_size, seq_len, vocab_size = student_probs.shape
 
-                    # logit 초기값 (정답 제외 나머지 토큰들)
+                    # initial value of logit (residual tokens except answer)
                     base_logit = -1.0
                     target_logits = torch.full((batch_size, seq_len, vocab_size), fill_value=base_logit, device=device)
 
-                    # 위치 매핑: label[b][t] → compressed_probs[b][j]에서의 j 구함
+                    # positional mapping : get j for label[b][t] → compressed_probs[b][j]
                     label2comp_map = get_label_to_compressed_map(labels)
 
                     for b in range(batch_size):
@@ -2071,10 +2067,10 @@ class DistillTrainer(Trainer):
                                 logit_val = compressed["values"][idx]
                                 target_logits[b, t, label] = logit_val
                             else:
-                                # label이 포함 안 되어 있으면 그대로 base_logit 유지
+                                # keep base_logit if label is not contained
                                 pass
 
-                    # softmax → 확률 분포
+                    # softmax → pdf
                     target_probs = torch.softmax(target_logits, dim=-1).clone().detach()
 
                 # KL(student || target)
@@ -2084,15 +2080,8 @@ class DistillTrainer(Trainer):
                     labels=labels
                 )
                                         
-                    
-                    
-                
-
-
+             
             elif self.args.adpa_loss_type == "kl_from_logits":
-                #teacher_probs = F.softmax(rejected_margin_logp / self.args.adpa_temperature, dim=-1)
-                #teacher_probs = torch.exp(rejected_margin_logp)
-                #teacher_probs = teacher_probs / teacher_probs.sum(dim=-1, keepdim=True)
                 adpa_loss = self.get_kl_loss(
                     policy_rejected_probs, rejected_margin_logp, model_output["rejected_labels"]
                 )
@@ -2100,7 +2089,7 @@ class DistillTrainer(Trainer):
                 
             elif self.args.adpa_loss_type == "rough_pg":
                 batch_size, seq_len, top_k = policy_rejected_probs.size()
-                # 1) mask를 이용해 -100 토큰 필터링
+                # 1) use mask to filter -100 token
                 mask = (model_output["rejected_labels"] != -100)
                 # 2) margin(=rejected_margin_logp)은 [B, T], 그 중 valid 토큰만 합산 -> shape: [B]
                 advantage_summed = rejected_margin_logp[mask].view(batch_size, -1).sum(dim=1)
@@ -2574,6 +2563,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
