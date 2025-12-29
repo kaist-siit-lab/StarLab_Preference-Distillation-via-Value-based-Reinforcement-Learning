@@ -1596,9 +1596,9 @@ class DistillTrainer(Trainer):
                         topk_indices[b, t, :k] = torch.tensor(compressed["indices"][:k], dtype=torch.long, device=student_probs.device)
                         topk_values[b, t, :k] = torch.tensor(compressed["values"][:k], dtype=torch.float, device=student_probs.device)
 
-                # [2] teacher 분포를 vocab_size에 맞춰 sparse->dense로 확장
+                # [2] expand teacher distribution according to vocab_size sparse->dense
                 teacher_logits = torch.full((batch_size, seq_len, vocab_size), -1e9, device=student_probs.device)
-                # -1e9로 초기화 -> teacher margin이 0인 위치는 매우 작은 로그값
+                # initialize -1e9 -> position where teacher margin is possess small log value
                 for b in range(batch_size):
                     margin_logp_seq = batch["rejected_margin_logp_every"][b]
                     seq_len_local = len(margin_logp_seq)
@@ -1609,13 +1609,13 @@ class DistillTrainer(Trainer):
                         teacher_logits[b, t, topk_indices[b, t, :k]] = topk_values[b, t, :k]
 
                 # [3] student_probs -> student_logits
-                #    log() 시에 0이 들어있으면 -inf가 나올 수 있으니 작은 값을 깔아둔다.
+                #    if 0 inside log() results -inf -> put epsilon
                 EPS = 1e-7
                 student_probs_clamped = student_probs.clamp(min=EPS)  # avoid log(0)
                 student_logits = student_probs_clamped.log().detach()
 
-                # [4] 혼합(logits) = teacher_logits + lam * student_logits
-                #    lam, temperature 등은 hyperparam (필요시 self.args에 추가)
+                # [4] Combined(logits) = teacher_logits + lam * student_logits
+                #    lam, temperature are hyperparam
                 lam = 1.0
                 temperature = self.args.adpa_temperature
                 combined_logits = teacher_logits + lam * student_logits
